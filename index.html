@@ -73,7 +73,9 @@ nav button svg{width:22px;height:22px}
 .avatar.lg{width:54px;height:54px;border-radius:16px;font-size:22px}
 .grow{flex:1;min-width:0}
 .title{font-weight:600;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.sub{font-size:12.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sub{font-size:12.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;gap:6px;align-items:center;margin-top:2px}
+.sub-tags{display:flex;gap:4px;flex-wrap:wrap;margin-top:3px}
+.mini-tag{font-size:10px;background:#f1f4f9;color:#64748b;padding:1px 6px;border-radius:10px}
 .right{text-align:right;flex-shrink:0}
 .right .num{font-weight:700;font-size:14px;color:var(--primary)}
 
@@ -211,9 +213,13 @@ select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='ht
 <script>
 /* ================= 数据层 ================= */
 const STORE_KEY = 'bxgj_v1';
+const CUSTOM_TAGS_KEY = 'bxgj_custom_tags';
 let DB = { customers: [], products: [], policies: [] };
 let route = { name: 'home', param: null };
 let custQ = '';
+// 读取自定义标签
+let userCustomTags = JSON.parse(localStorage.getItem(CUSTOM_TAGS_KEY) || '[]');
+const DEFAULT_TAGS = ['高价值', '高意向', '有儿子', '有女儿', '已成交', '待跟进', '转介绍', '关注养老', '关注重疾', '预算有限'];
 
 function load(){
   try{
@@ -228,7 +234,7 @@ function load(){
 }
 function save(){
   try{ localStorage.setItem(STORE_KEY, JSON.stringify(DB)); }
-  catch(e){ alert('保存失败，可能是存储空间不足'); }
+  catch(e){ alert('保存失败，可能是存储空间不足（特别是身份证照片过多会导致内存满）。'); }
 }
 
 /* ================= 工具 ================= */
@@ -248,13 +254,17 @@ function fmtMoney(n){
   if(n >= 10000) return (n/10000).toFixed(1).replace(/\.0$/,'') + '万';
   return n.toLocaleString('zh-CN');
 }
-function dueBadge(c){
-  if(!c.nextFollowUp) return '';
-  const d = daysUntil(c.nextFollowUp);
-  if(d < 0)  return '<span class="badge over">逾期'+(-d)+'天</span>';
-  if(d === 0) return '<span class="badge today">今天</span>';
-  if(d <= 7)  return '<span class="badge soon">'+d+'天后</span>';
-  return '<span class="badge muted">'+c.nextFollowUp.slice(5)+'</span>';
+// 判断是否超期未跟进（超过30天或为空）
+function isOverdue(c) {
+  if(!c.lastFollowUp) return true; // 没填跟进日期的都算待跟进
+  const d = daysUntil(c.lastFollowUp);
+  return d < -30; // 最后跟进时间超过30天前
+}
+function getFollowUpBadge(c) {
+  if(!c.lastFollowUp) return '<span class="badge muted">未跟进</span>';
+  const d = daysUntil(c.lastFollowUp);
+  if(d < -30) return '<span class="badge over">超30天</span>';
+  return '<span class="badge muted">' + c.lastFollowUp.slice(5) + '</span>';
 }
 
 /* ================= 路由 ================= */
@@ -299,26 +309,29 @@ function renderHome(){
     .reduce((s,p) => s + (Number(p.amount)||0), 0);
 
   const due = DB.customers
-    .filter(c => c.nextFollowUp)
-    .map(c => ({ c, d: daysUntil(c.nextFollowUp) }))
-    .filter(x => x.d <= 7)
-    .sort((a,b) => a.d - b.d);
+    .filter(c => isOverdue(c))
+    .sort((a,b) => {
+      if(!a.lastFollowUp && !b.lastFollowUp) return 0;
+      if(!a.lastFollowUp) return 1;
+      if(!b.lastFollowUp) return -1;
+      return a.lastFollowUp.localeCompare(b.lastFollowUp);
+    });
 
   let html = `
   <div class="stats">
     <div class="stat"><div class="num">${DB.customers.length}</div><div class="lbl">客户总数</div></div>
     <div class="stat"><div class="num">${DB.policies.length}</div><div class="lbl">保单总数</div></div>
     <div class="stat"><div class="num">${fmtMoney(monthPremium)}</div><div class="lbl">本月保费(元)</div></div>
-    <div class="stat"><div class="num" style="color:${due.length ? 'var(--warn)' : 'inherit'}">${due.length}</div><div class="lbl">待跟进(7天内)</div></div>
+    <div class="stat"><div class="num" style="color:${due.length ? 'var(--warn)' : 'inherit'}">${due.length}</div><div class="lbl">超期待跟进</div></div>
   </div>`;
 
   html += '<div class="section-title">待跟进提醒</div>';
   if(!due.length){
-    html += '<div class="empty">暂无临近的跟进任务 🎉</div>';
+    html += '<div class="empty">暂无需要跟进的客户 🎉</div>';
   }else{
-    html += due.map(({c,d}) => {
-      const txt = d < 0 ? '逾期'+(-d)+'天' : (d === 0 ? '今天' : d+'天后');
-      const cls = d < 0 ? 'over' : (d === 0 ? 'today' : 'soon');
+    html += due.map(c => {
+      const txt = c.lastFollowUp ? '已超30天' : '未跟进';
+      const cls = 'over';
       return `<div class="item" onclick="go('customer','${c.id}')">
         <div class="avatar">${esc((c.name||'?').slice(0,1))}</div>
         <div class="grow">
@@ -366,13 +379,14 @@ function custListHTML(){
     list = list.filter(c =>
       (c.name||'').toLowerCase().includes(q) ||
       (c.phone||'').includes(q) ||
+      (c.idCard||'').includes(q) ||
       (c.tags||'').toLowerCase().includes(q)
     );
   }
   list.sort((a,b) => {
-    const da = a.nextFollowUp ? daysUntil(a.nextFollowUp) : 99999;
-    const db = b.nextFollowUp ? daysUntil(b.nextFollowUp) : 99999;
-    if(da !== db) return da - db;
+    const da = a.lastFollowUp ? -daysUntil(a.lastFollowUp) : -99999;
+    const db = b.lastFollowUp ? -daysUntil(b.lastFollowUp) : -99999;
+    if(da !== db) return db - da; // 最近跟进的排前面
     return (a.name||'').localeCompare(b.name||'', 'zh');
   });
 
@@ -381,14 +395,21 @@ function custListHTML(){
   }
 
   return list.map(c => {
-    const cnt = DB.policies.filter(p => p.customerId === c.id).length;
+    const tagArr = (c.tags||'').split(/[,\s，、]+/).filter(Boolean);
+    const tagHtml = tagArr.slice(0, 3).map(t => `<span class="mini-tag">${esc(t)}</span>`).join('');
+    const followText = c.lastFollowUp ? '跟进:' + c.lastFollowUp.slice(5) : '未跟进';
+
     return `<div class="item" onclick="go('customer','${c.id}')">
       <div class="avatar">${esc((c.name||'?').slice(0,1))}</div>
       <div class="grow">
         <div class="title">${esc(c.name)}</div>
-        <div class="sub">${esc(c.phone || '未填手机号')} · ${cnt} 份保单</div>
+        <div class="sub">
+          <span>${esc(c.phone || '未填手机')}</span>
+          <span style="color:var(--muted);font-size:11px">${followText}</span>
+        </div>
+        ${tagHtml ? `<div class="sub-tags">${tagHtml}</div>` : ''}
       </div>
-      ${dueBadge(c)}
+      ${getFollowUpBadge(c)}
     </div>`;
   }).join('');
 }
@@ -396,7 +417,7 @@ function custListHTML(){
 function renderCustomers(){
   return `
   <div class="searchbar">
-    <input id="cust-search" placeholder="搜索姓名 / 手机 / 标签" value="${esc(custQ)}">
+    <input id="cust-search" placeholder="搜索姓名 / 手机 / 身份证 / 标签" value="${esc(custQ)}">
   </div>
   <div id="cust-list">${custListHTML()}</div>`;
 }
@@ -409,7 +430,7 @@ function renderCustomerDetail(){
   const pols = DB.policies.filter(p => p.customerId === c.id)
     .sort((a,b) => (b.date||'').localeCompare(a.date||''));
   const total = pols.reduce((s,p) => s + (Number(p.amount)||0), 0);
-  const d = c.nextFollowUp ? daysUntil(c.nextFollowUp) : null;
+  const d = c.lastFollowUp ? daysUntil(c.lastFollowUp) : null;
 
   const tags = (c.tags||'').split(/[,\s，、]+/).filter(Boolean);
 
@@ -421,7 +442,7 @@ function renderCustomerDetail(){
       <div class="avatar lg">${esc((c.name||'?').slice(0,1))}</div>
       <div class="grow">
         <div class="pname">${esc(c.name)}</div>
-        <div class="sub">${esc(c.phone || '未填手机号')}</div>
+        <div class="sub">${esc(c.phone || '未填手机号')} ${c.age ? ' · ' + c.age + '岁' : ''}</div>
         ${tags.length ? '<div class="tags">' + tags.map(t=>'<span class="tag">'+esc(t)+'</span>').join('') + '</div>' : ''}
       </div>
     </div>
@@ -433,14 +454,19 @@ function renderCustomerDetail(){
   </div>
 
   <div class="card">
-    <div class="kv"><span>年龄</span><b>${c.age ? c.age + ' 岁' : '未填'}</b></div>
-    <div class="kv"><span>下次跟进</span><b>${
-      c.nextFollowUp
-        ? esc(c.nextFollowUp) + (d !== null ? '（' + (d < 0 ? '已逾期' + (-d) + '天' : d === 0 ? '今天' : '还有' + d + '天') + '）' : '')
+    <div class="kv"><span>身份证号</span><b>${esc(c.idCard || '未填')}</b></div>
+    <div class="kv"><span>最后一次跟进</span><b>${
+      c.lastFollowUp
+        ? esc(c.lastFollowUp) + (d !== null ? '（' + (d < 0 ? '已过去' + (-d) + '天' : d === 0 ? '今天' : '还有' + d + '天') + '）' : '')
         : '未设置'
     }</b></div>
     <div class="kv"><span>累计保费</span><b>¥${fmtMoney(total)}</b></div>
     <div class="kv"><span>备注</span><span>${c.note ? esc(c.note) : '—'}</span></div>
+    ${c.idCardImage ? `
+    <div style="margin-top:10px;">
+      <div style="font-size:13px;color:var(--muted);margin-bottom:5px;">身份证照片：</div>
+      <img src="${c.idCardImage}" style="width:100%; border-radius:10px; border:1px solid var(--border);" onclick="window.open(this.src)">
+    </div>` : ''}
   </div>
 
   <div class="section-title">
@@ -509,7 +535,7 @@ function renderMore(){
     <button class="btn danger full" style="margin-top:9px" onclick="clearAll()">清空所有数据</button>
   </div>
 
-  <div class="tip">数据保存在本机浏览器中。<br>换手机、清理浏览器数据会丢失，建议定期导出备份。</div>
+  <div class="tip">数据保存在本机浏览器中。<br>换手机、清理浏览器数据会丢失，建议定期导出备份。<br>⚠️ 身份证等隐私信息请妥善保管，切勿泄露！</div>
   `;
 }
 
@@ -530,11 +556,31 @@ function closeModal(){
 }
 
 /* ================= 表单：客户 ================= */
+function compressImage(file, callback) {
+  const reader = new FileReader();
+  reader.readAsDataURL(file);
+  reader.onload = e => {
+    const img = new Image();
+    img.src = e.target.result;
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      let w = img.width, h = img.height;
+      const maxW = 800;
+      if (w > maxW) { h = Math.round(h * maxW / w); w = maxW; }
+      canvas.width = w; canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, w, h);
+      // 压缩为 JPEG，质量为 0.7，尽量减小 base64 体积
+      callback(canvas.toDataURL('image/jpeg', 0.7));
+    };
+  };
+}
+
 function customerForm(id){
   const c = id ? DB.customers.find(x => x.id === id) : null;
-  const PRESET_TAGS = ['高价值', '高意向', '有儿子', '有女儿', '已成交', '待跟进', '转介绍', '关注养老', '关注重疾', '预算有限'];
+  const allTags = [...new Set([...DEFAULT_TAGS, ...userCustomTags])];
   const currentTags = c && c.tags ? c.tags.split(/[,\s，、]+/).filter(Boolean) : [];
-  const presetHtml = PRESET_TAGS.map(t => 
+  const presetHtml = allTags.map(t => 
     `<button type="button" class="btn-tag ${currentTags.includes(t) ? 'active' : ''}" onclick="toggleTag('${t}')">${t}</button>`
   ).join('');
 
@@ -543,18 +589,46 @@ function customerForm(id){
     <label>姓名 *<input id="f-name" value="${esc(c ? c.name : '')}" placeholder="客户姓名"></label>
     <label>年龄<input id="f-age" type="number" inputmode="numeric" value="${c && c.age ? c.age : ''}" placeholder="选填，如 35"></label>
     <label>手机号<input id="f-phone" type="tel" value="${esc(c ? c.phone : '')}" placeholder="选填"></label>
+    <label>身份证号<input id="f-idcard" value="${esc(c ? c.idCard : '')}" placeholder="选填"></label>
+    <label>身份证照片（支持拍照/上传，浏览器无法自动识别，请拍照后手动填写信息）
+      <div style="display:flex; align-items:center; gap:10px; margin-top:5px;">
+        <input type="file" id="f-idcard-img" accept="image/*" capture="environment" style="display:none">
+        <button type="button" class="btn ghost" style="flex:1; padding:10px;" onclick="document.getElementById('f-idcard-img').click()">📷 拍照 / 上传</button>
+        <button type="button" class="btn ghost" style="flex:1; padding:10px; display:${c && c.idCardImage ? 'block' : 'none'}" id="btn-remove-img" onclick="removeIdCardImage()">🗑️ 删除照片</button>
+      </div>
+      <div id="idcard-preview" style="display:${c && c.idCardImage ? 'block' : 'none'}; margin-top:10px; text-align:center;">
+        <img id="idcard-preview-img" src="${c && c.idCardImage ? c.idCardImage : ''}" style="width:100%; max-height:160px; object-fit:contain; border-radius:8px; border:1px solid var(--border);">
+      </div>
+    </label>
     <label>标签<input id="f-tags" value="${esc(c ? c.tags : '')}" placeholder="如：高意向、已成交（逗号分隔）"></label>
-    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:-6px;margin-bottom:14px;">
+    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:-6px;margin-bottom:12px;">
       <span style="font-size:12px;color:var(--muted);width:100%">快捷标签（点按选择/取消）：</span>
-      ${presetHtml}
+      <div id="tag-buttons">${presetHtml}</div>
+      <div style="display:flex; gap:6px; width:100%; margin-top:6px;">
+        <input id="f-new-tag" placeholder="新增自定义标签" style="flex:1; padding:8px 10px; font-size:13px;">
+        <button type="button" class="btn ghost" style="padding:8px 12px; font-size:13px;" onclick="addCustomTag()">添加</button>
+      </div>
     </div>
-    <label>下次跟进日期<input id="f-next" type="date" value="${esc(c ? c.nextFollowUp : '')}"></label>
+    <label>最后一次跟进日期<input id="f-last-follow" type="date" value="${esc(c ? c.lastFollowUp : '')}"></label>
     <label>备注<textarea id="f-note" rows="3" placeholder="家庭情况、预算、关注点…">${esc(c ? c.note : '')}</textarea></label>
     <div class="modal-actions">
       <button class="btn ghost" onclick="closeModal()">取消</button>
       <button class="btn primary" id="f-save">保存</button>
     </div>
   `, m => {
+    // 图片上传预览与压缩
+    m.querySelector('#f-idcard-img').onchange = (e) => {
+      const file = e.target.files[0];
+      if(!file) return;
+      compressImage(file, (base64) => {
+        m.querySelector('#idcard-preview-img').src = base64;
+        m.querySelector('#idcard-preview').style.display = 'block';
+        m.querySelector('#btn-remove-img').style.display = 'block';
+        m.dataset.idcardImage = base64; // 暂存
+      });
+    };
+
+    // 保存客户数据
     m.querySelector('#f-save').onclick = () => {
       const name = m.querySelector('#f-name').value.trim();
       if(!name) return alert('请填写姓名');
@@ -562,15 +636,26 @@ function customerForm(id){
         name,
         age: m.querySelector('#f-age').value.trim() ? Number(m.querySelector('#f-age').value) : '',
         phone: m.querySelector('#f-phone').value.trim(),
+        idCard: m.querySelector('#f-idcard').value.trim(),
         tags: m.querySelector('#f-tags').value.trim(),
-        nextFollowUp: m.querySelector('#f-next').value,
-        note: m.querySelector('#f-note').value.trim()
+        lastFollowUp: m.querySelector('#f-last-follow').value,
+        note: m.querySelector('#f-note').value.trim(),
+        idCardImage: m.dataset.idcardImage || (c ? c.idCardImage : '')
       };
       if(c) Object.assign(c, data);
       else DB.customers.push({ id: uid(), createdAt: fmtDate(new Date()), ...data });
       save(); closeModal(); render();
     };
   });
+}
+
+function removeIdCardImage(){
+  if(!confirm('确定删除身份证照片？')) return;
+  const m = document.getElementById('modal-mask');
+  m.dataset.idcardImage = ''; // 清空暂存
+  m.querySelector('#idcard-preview-img').src = '';
+  m.querySelector('#idcard-preview').style.display = 'none';
+  m.querySelector('#btn-remove-img').style.display = 'none';
 }
 
 function toggleTag(tag){
@@ -582,10 +667,43 @@ function toggleTag(tag){
     tags.push(tag);
   }
   input.value = tags.join('、');
-  // 更新按钮状态
+  renderTagButtons();
+}
+
+function renderTagButtons(){
+  const input = document.getElementById('f-tags');
+  let tags = input.value.split(/[,\s，、]+/).filter(Boolean);
   document.querySelectorAll('.btn-tag').forEach(btn => {
     btn.classList.toggle('active', tags.includes(btn.textContent.trim()));
   });
+}
+
+function addCustomTag(){
+  const input = document.getElementById('f-new-tag');
+  const val = input.value.trim();
+  if(!val) return;
+  if(val.includes('、') || val.includes(',')) return alert('标签不能包含逗号');
+  
+  // 添加到自定义标签库
+  if(!userCustomTags.includes(val) && !DEFAULT_TAGS.includes(val)){
+    userCustomTags.push(val);
+    localStorage.setItem(CUSTOM_TAGS_KEY, JSON.stringify(userCustomTags));
+  }
+  
+  // 自动勾选这个新标签
+  const tagsInput = document.getElementById('f-tags');
+  let tags = tagsInput.value.split(/[,\s，、]+/).filter(Boolean);
+  if(!tags.includes(val)) tags.push(val);
+  tagsInput.value = tags.join('、');
+  
+  // 重新渲染按钮
+  const allTags = [...new Set([...DEFAULT_TAGS, ...userCustomTags])];
+  const container = document.getElementById('tag-buttons');
+  container.innerHTML = allTags.map(t => 
+    `<button type="button" class="btn-tag ${tags.includes(t) ? 'active' : ''}" onclick="toggleTag('${t}')">${t}</button>`
+  ).join('');
+  
+  input.value = '';
 }
 
 function delCustomer(id){
@@ -769,14 +887,14 @@ function seedDemo(){
 
   const c1 = uid(), c2 = uid(), c3 = uid();
   const t = new Date();
-  const soon = fmtDate(new Date(t.getTime() + 2*86400000));
-  const overdue = fmtDate(new Date(t.getTime() - 3*86400000));
-  const later = fmtDate(new Date(t.getTime() + 20*86400000));
+  const lastWeek = fmtDate(new Date(t.getTime() - 7*86400000));
+  const lastMonth = fmtDate(new Date(t.getTime() - 35*86400000));
+  const longAgo = fmtDate(new Date(t.getTime() - 60*86400000));
 
   DB.customers = [
-    { id: c1, name: '张先生', phone: '13800000001', tags: '高意向,已成交', nextFollowUp: soon, note: '35岁，两个孩子，关注重疾和教育金' },
-    { id: c2, name: '李女士', phone: '13800000002', tags: '已成交', nextFollowUp: later, note: '续期提醒，对医疗险感兴趣' },
-    { id: c3, name: '王先生', phone: '13800000003', tags: '待跟进', nextFollowUp: overdue, note: '朋友介绍，预算有限，先聊保障观念' }
+    { id: c1, name: '张先生', phone: '13800000001', age: 35, idCard: '330100198901011234', tags: '高意向、已成交', lastFollowUp: lastWeek, note: '35岁，两个孩子，关注重疾和教育金' },
+    { id: c2, name: '李女士', phone: '13800000002', age: 42, idCard: '', tags: '已成交、关注养老', lastFollowUp: lastMonth, note: '续期提醒，对医疗险感兴趣' },
+    { id: c3, name: '王先生', phone: '13800000003', age: 28, idCard: '', tags: '待跟进、预算有限', lastFollowUp: longAgo, note: '朋友介绍，预算有限，先聊保障观念' }
   ];
 
   DB.policies = [
