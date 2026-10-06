@@ -257,9 +257,9 @@ function fmtMoney(n){
 }
 // 判断是否超期未跟进（超过30天或为空）
 function isOverdue(c) {
-  if(!c.lastFollowUp) return true; // 没填跟进日期的都算待跟进
+  if(!c.lastFollowUp) return true;
   const d = daysUntil(c.lastFollowUp);
-  return d < -30; // 最后跟进时间超过30天前
+  return d < -30;
 }
 function getFollowUpBadge(c) {
   if(!c.lastFollowUp) return '<span class="badge muted">未跟进</span>';
@@ -318,30 +318,27 @@ function renderHome(){
       return a.lastFollowUp.localeCompare(b.lastFollowUp);
     });
 
-  let html = `
-  <div class="stats">
-    <div class="stat"><div class="num">${DB.customers.length}</div><div class="lbl">客户总数</div></div>
-    <div class="stat"><div class="num">${DB.policies.length}</div><div class="lbl">保单总数</div></div>
-    <div class="stat"><div class="num">${fmtMoney(monthPremium)}</div><div class="lbl">本月保费(元)</div></div>
-    <div class="stat"><div class="num" style="color:${due.length ? 'var(--warn)' : 'inherit'}">${due.length}</div><div class="lbl">超期待跟进</div></div>
-    <div class="stat"><div class="num">${DB.activities.length}</div><div class="lbl">活动总次数</div></div>
-  </div>`;
+  let html = '';
+  html += '<div class="stats">';
+  html += '<div class="stat"><div class="num">' + DB.customers.length + '</div><div class="lbl">客户总数</div></div>';
+  html += '<div class="stat"><div class="num">' + DB.policies.length + '</div><div class="lbl">保单总数</div></div>';
+  html += '<div class="stat"><div class="num">' + fmtMoney(monthPremium) + '</div><div class="lbl">本月保费(元)</div></div>';
+  html += '<div class="stat"><div class="num" style="color:' + (due.length ? 'var(--warn)' : 'inherit') + '">' + due.length + '</div><div class="lbl">超期待跟进</div></div>';
+  html += '<div class="stat"><div class="num">' + DB.activities.length + '</div><div class="lbl">活动总次数</div></div>';
+  html += '</div>';
 
   html += '<div class="section-title">待跟进提醒</div>';
   if(!due.length){
     html += '<div class="empty">暂无需要跟进的客户 🎉</div>';
   }else{
-    html += due.map(c => {
+    html += due.map(function(c){
       const txt = c.lastFollowUp ? '已超30天' : '未跟进';
       const cls = 'over';
-      return `<div class="item" onclick="go('customer','${c.id}')">
-        <div class="avatar">${esc((c.name||'?').slice(0,1))}</div>
-        <div class="grow">
-          <div class="title">${esc(c.name)}</div>
-          <div class="sub">${esc(c.phone || '未填手机号')}</div>
-        </div>
-        <span class="badge ${cls}">${txt}</span>
-      </div>`;
+      return '<div class="item" onclick="go(\'customer\',\'' + c.id + '\')">' +
+        '<div class="avatar">' + esc((c.name||'?').slice(0,1)) + '</div>' +
+        '<div class="grow"><div class="title">' + esc(c.name) + '</div>' +
+        '<div class="sub">' + esc(c.phone || '未填手机号') + '</div></div>' +
+        '<span class="badge ' + cls + '">' + txt + '</span></div>';
     }).join('');
   }
 
@@ -350,24 +347,20 @@ function renderHome(){
     .slice(0,5);
   if(recent.length){
     html += '<div class="section-title">最近成交</div>';
-    html += recent.map(p => {
+    html += recent.map(function(p){
       const c = DB.customers.find(x => x.id === p.customerId);
-      return `<div class="item" onclick="go('customer','${p.customerId}')">
-        <div class="avatar" style="background:#e8f8f0;color:#10b981">${esc((p.productName||'保').slice(0,1))}</div>
-        <div class="grow">
-          <div class="title">${esc(p.productName || '未命名产品')}</div>
-          <div class="sub">${esc(c ? c.name : '未知客户')} · ${esc(p.date || '')}</div>
-        </div>
-        <div class="right"><div class="num">¥${fmtMoney(p.amount)}</div></div>
-      </div>`;
+      return '<div class="item" onclick="go(\'customer\',\'' + p.customerId + '\')">' +
+        '<div class="avatar" style="background:#e8f8f0;color:#10b981">' + esc((p.productName||'保').slice(0,1)) + '</div>' +
+        '<div class="grow"><div class="title">' + esc(p.productName || '未命名产品') + '</div>' +
+        '<div class="sub">' + esc(c ? c.name : '未知客户') + ' · ' + esc(p.date || '') + '</div></div>' +
+        '<div class="right"><div class="num">¥' + fmtMoney(p.amount) + '</div></div></div>';
     }).join('');
   }
 
   if(!DB.customers.length && !DB.products.length){
-    html += `<div class="card" style="text-align:center;margin-top:14px">
-      <div style="font-size:14px;color:var(--muted);margin-bottom:12px">还没有数据，先添加第一位客户吧</div>
-      <button class="btn ghost full" onclick="seedDemo()">载入示例数据体验一下</button>
-    </div>`;
+    html += '<div class="card" style="text-align:center;margin-top:14px">' +
+      '<div style="font-size:14px;color:var(--muted);margin-bottom:12px">还没有数据，先添加第一位客户吧</div>' +
+      '<button class="btn ghost full" onclick="seedDemo()">载入示例数据体验一下</button></div>';
   }
 
   return html;
@@ -378,17 +371,17 @@ function custListHTML(){
   const q = custQ.trim().toLowerCase();
   let list = DB.customers.slice();
   if(q){
-    list = list.filter(c =>
-      (c.name||'').toLowerCase().includes(q) ||
-      (c.phone||'').includes(q) ||
-      (c.idCard||'').includes(q) ||
-      (c.tags||'').toLowerCase().includes(q)
-    );
+    list = list.filter(function(c){
+      return (c.name||'').toLowerCase().includes(q) ||
+        (c.phone||'').includes(q) ||
+        (c.idCard||'').includes(q) ||
+        (c.tags||'').toLowerCase().includes(q);
+    });
   }
-  list.sort((a,b) => {
+  list.sort(function(a,b){
     const da = a.lastFollowUp ? -daysUntil(a.lastFollowUp) : -99999;
     const db = b.lastFollowUp ? -daysUntil(b.lastFollowUp) : -99999;
-    if(da !== db) return db - da; // 最近跟进的排前面
+    if(da !== db) return db - da;
     return (a.name||'').localeCompare(b.name||'', 'zh');
   });
 
@@ -396,34 +389,29 @@ function custListHTML(){
     return '<div class="empty">' + (q ? '没有找到匹配的客户' : '还没有客户，点右下角 ＋ 添加') + '</div>';
   }
 
-  return list.map(c => {
+  return list.map(function(c){
     const tagArr = (c.tags||'').split(/[,\s，、]+/).filter(Boolean);
-    const tagHtml = tagArr.slice(0, 3).map(t => `<span class="mini-tag">${esc(t)}</span>`).join('');
+    const tagHtml = tagArr.slice(0, 3).map(function(t){ return '<span class="mini-tag">' + esc(t) + '</span>'; }).join('');
     const followText = c.lastFollowUp ? '跟进:' + c.lastFollowUp : '未跟进';
-    const actCount = DB.activities.filter(a => a.customerId === c.id).length;
+    const actCount = DB.activities.filter(function(a){ return a.customerId === c.id; }).length;
 
-    return `<div class="item" onclick="go('customer','${c.id}')">
-      <div class="avatar">${esc((c.name||'?').slice(0,1))}</div>
-      <div class="grow">
-        <div class="title">${esc(c.name)}</div>
-        <div class="sub">
-          <span>${esc(c.phone || '未填手机')}</span>
-          <span style="color:var(--muted);font-size:11px">${followText}</span>
-          ${actCount ? `<span style="color:var(--primary);font-size:11px">🎯${actCount}次活动</span>` : ''}
-        </div>
-        ${tagHtml ? `<div class="sub-tags">${tagHtml}</div>` : ''}
-      </div>
-      ${getFollowUpBadge(c)}
-    </div>`;
+    return '<div class="item" onclick="go(\'customer\',\'' + c.id + '\')">' +
+      '<div class="avatar">' + esc((c.name||'?').slice(0,1)) + '</div>' +
+      '<div class="grow"><div class="title">' + esc(c.name) +"> '</div>' +
+      '<div class="sub"><span>' + esc(c.phone' || '未填手机') + '</span>' +
+ +      '<span style="color: custvar(--muted);fontList-size:11px">' +HTML followText + '</span>' +
+      (actCount ? '<span style="color:var(--primary);font-size:11px">🎯' + actCount + '次活动</span>' : '') +
+      '</div>' +
+      (tagHtml ? '<div class="sub-tags">' + tagHtml + '</div>' : '') +
+      '</div>' + getFollowUpBadge(c) + '</div>';
   }).join('');
 }
 
 function renderCustomers(){
-  return `
-  <div class="searchbar">
-    <input id="cust-search" placeholder="搜索姓名 / 手机 / 身份证 / 标签" value="${esc(custQ)}">
-  </div>
-  <div id="cust-list">${custListHTML()}</div>`;
+  return '<div class="searchbar">' +
+    '<input id="cust-search" placeholder="搜索姓名 / 手机 / 身份证 / 标签" value="' + esc(custQ) + '">' +
+    '</div>' +
+    '<div id="cust-list() + '</div>';
 }
 
 /* ================= 客户详情 ================= */
@@ -440,126 +428,123 @@ function renderCustomerDetail(){
 
   const tags = (c.tags||'').split(/[,\s，、]+/).filter(Boolean);
 
-  return `
-  <button class="back" onclick="go('customers')">‹ 返回客户列表</button>
+  let html = '';
+  html += '<button class="back" onclick="go(\'customers\')">‹ 返回客户列表</button>';
 
-  <div class="card">
-    <div class="profile-top">
-      <div class="avatar lg">${esc((c.name||'?').slice(0,1))}</div>
-      <div class="grow">
-        <div class="pname">${esc(c.name)}</div>
-        <div class="sub">${esc(c.phone || '未填手机号')} ${c.age ? ' · ' + c.age + '岁' : ''}</div>
-        ${tags.length ? '<div class="tags">' + tags.map(t=>'<span class="tag">'+esc(t)+'</span>').join('') + '</div>' : ''}
-      </div>
-    </div>
-    <div class="actions">
-      ${c.phone ? `<a class="btn ghost" href="tel:${esc(c.phone)}">拨打电话</a>` : ''}
-      <button class="btn ghost" onclick="customerForm('${c.id}')">编辑</button>
-      <button class="btn ghost danger-t" onclick="delCustomer('${c.id}')">删除</button>
-    </div>
-  </div>
+  html += '<div class="card">' +
+    '<div class="profile-top">' +
+    '<div class="avatar lg">' + esc((c.name||'?').slice(0,1)) + '</div>' +
+    '<div class="grow"><div class="pname">' + esc(c.name) + '</div>' +
+    '<div class="sub">' + esc(c.phone || '未填手机号') + (c.age ? ' · ' + c.age + '岁' : '') + '</div>' +
+    (tags.length ? '<div class="tags">' + tags.map(function(t){ return '<span class="tag">' + esc(t) + '</span>'; }).join('') + '</div>' : '') +
+    '</div></div>' +
+    '<div class="actions">' +
+    (c.phone ? '<a class="btn ghost" href="tel:' + esc(c.phone) + '">拨打电话</a>' : '') +
+    '<button class="btn ghost" onclick="customerForm(\'' + c.id + '\')">编辑</button>' +
+    '<button class="btn ghost danger-t" onclick="delCustomer(\'' + c.id + '\')">删除</button>' +
+    '</div></div>';
 
-  <div class="card">
-    <div class="kv"><span>身份证号</span><b>${esc(c.idCard || '未填')}</b></div>
-    <div class="kv"><span>最后一次跟进</span><b>${
-      c.lastFollowUp
-        ? esc(c.lastFollowUp) + (d !== null ? '（' + (d < 0 ? '已过去' + (-d) + '天' : d === 0 ? '今天' : '还有' + d + '天') + '）' : '')
-        : '未设置'
-    }</b></div>
-    <div class="kv"><span>累计保费</span><b>¥${fmtMoney(total)}</b></div>
-    <div class="kv"><span>活动次数</span><b>${acts.length} 次</b></div>
-    <div class="kv"><span>备注</span><span>${c.note ? esc(c.note) : '—'}</span></div>
-    ${c.idCardImage ? `
-    <div style="margin-top:10px;">
-      <div style="font-size:13px;color:var(--muted);margin-bottom:5px;">身份证照片：</div>
-      <img src="${c.idCardImage}" style="width:100%; border-radius:10px; border:1px solid var(--border);" onclick="window.open(this.src)">
-    </div>` : ''}
-  </div>
+  html += '<div class="card">';
+  html += '<div class="kv"><span>身份证号</span><b>' + esc(c.idCard || '未填') + '</b></div>';
+  html += '<div class="kv"><span>最后一次跟进</span><b>' +
+    (c.lastFollowUp ? esc(c.lastFollowUp) + (d !== null ? '（' + (d < 0 ? '已过去' + (-d) + '天' : d === 0 ? '今天' : '还有' + d + '天') + '）' : '') : '未设置') +
+    '</b></div>';
+  html += '<div class="kv"><span>累计保费</span><b>¥' + fmtMoney(total) + '</b></div>';
+  html += '<div class="kv"><span>活动次数</span><b>' + acts.length + ' 次</b></div>';
+  html += '<div class="kv"><span>备注</span><span>' + (c.note ? esc(c.note) : '—') + '</span></div>';
+  if(c.idCardImage) {
+    html += '<div style="margin-top:10px;">' +
+      '<div style="font-size:13px;color:var(--muted);margin-bottom:5px;">身份证照片：</div>' +
+      '<img src="' + c.idCardImage + '" style="width:100%; border-radius:10px; border:1px solid var(--border);" onclick="window.open(this.src)">' +
+      '</div>';
+  }
+  html += '</div>';
 
-  <div class="section-title">
-    <span>保单记录（${pols.length}）</span>
-    <button class="link" onclick="policyForm('${c.id}')">＋ 添加</button>
-  </div>
+  html += '<div class="section-title">' +
+    '<span>保单记录（' + pols.length + '）</span>' +
+    '<button class="link" onclick="policyForm(\'' + c.id + '\')">＋ 添加</button>' +
+    '</div>';
 
-  ${pols.length ? pols.map(p => `
-    <div class="card policy" onclick="policyForm('${c.id}','${p.id}')">
-      <div class="row-between">
-        <b>${esc(p.productName || '未命名产品')}</b>
-        <span class="money">¥${fmtMoney(p.amount)}</span>
-      </div>
-      <div class="sub" style="margin-top:4px">${esc(p.date || '未填日期')}${p.note ? ' · ' + esc(p.note) : ''}</div>
-    </div>`).join('')
-  : '<div class="empty">还没有保单记录，点上面「＋ 添加」</div>'}
+  if(pols.length){
+    html += pols.map(function(p){
+      return '<div class="card policy" onclick="policyForm(\'' + c.id + '\',\'' + p.id + '\')">' +
+        '<div class="row-between"><b>' + esc(p.productName || '未命名产品') + '</b>' +
+        '<span class="money">¥' + fmtMoney(p.amount) + '</span></div>' +
+        '<div class="sub" style="margin-top:4px">' + esc(p.date || '未填日期') + (p.note ? ' · ' + esc(p.note) : '') + '</div>' +
+        '</div>';
+    }).join('');
+  } else {
+    html += '<div class="empty">还没有保单记录，点上面「＋ 添加」</div>';
+  }
 
-  <div class="section-title" style="margin-top:20px;">
-    <span>活动记录（${acts.length}）</span>
-    <button class="link" onclick="activityForm('${c.id}')">＋ 添加</button>
-  </div>
+  html += '<div class="section-title" style="margin-top:20px;">' +
+    '<span>活动记录（' + acts.length + '）</span>' +
+    '<button class="link" onclick="activityForm(\'' + c.id + '\')">＋ 添加</button>' +
+    '</div>';
 
-  ${acts.length ? acts.map(a => `
-    <div class="card policy" onclick="activityForm('${c.id}','${a.id}')">
-      <div class="row-between">
-        <b>${esc(a.name || '活动')}</b>
-        <span class="money">${esc(a.date)}</span>
-      </div>
-      <div class="sub" style="margin-top:4px">${a.note ? esc(a.note) : ''}</div>
-    </div>`).join('')
-  : '<div class="empty">还没有活动记录，点上面「＋ 添加」</div>'}
-  `;
+  if(acts.length){
+    html += acts.map(function(a){
+      return '<div class="card policy" onclick="activityForm(\'' + c.id + '\',\'' + a.id + '\')">' +
+        '<div class="row-between"><b>' + esc(a.name || '活动') + '</b>' +
+        '<span class="money">' + esc(a.date) + '</span></div>' +
+        '<div class="sub" style="margin-top:4px">' + (a.note ? esc(a.note) : '') + '</div>' +
+        '</div>';
+    }).join('');
+  } else {
+    html += '<div class="empty">还没有活动记录，点上面「＋ 添加」</div>';
+  }
+
+  return html;
 }
 
 /* ================= 产品页 ================= */
 function renderProducts(){
   if(!DB.products.length){
-    return `<div class="empty">还没有产品，点右下角 ＋ 添加<br><br>
-      <button class="btn ghost" onclick="seedDemo()">载入示例数据</button></div>`;
+    return '<div class="empty">还没有产品，点右下角 ＋ 添加<br><br>' +
+      '<button class="btn ghost" onclick="seedDemo()">载入示例数据</button></div>';
   }
 
-  const list = DB.products.map(pr => {
+  const list = DB.products.map(function(pr){
     const mine = DB.policies.filter(p => p.productName === pr.name);
     return {
-      ...pr,
+      id: pr.id,
+      name: pr.name,
+      company: pr.company,
+      category: pr.category,
+      note: pr.note,
       cnt: mine.length,
-      amt: mine.reduce((s,p) => s + (Number(p.amount)||0), 0)
+      amt: mine.reduce(function(s,p){ return s + (Number(p.amount)||0); }, 0)
     };
-  }).sort((a,b) => b.cnt - a.cnt || a.name.localeCompare(b.name, 'zh'));
+  }).sort(function(a,b){ return b.cnt - a.cnt || a.name.localeCompare(b.name, 'zh'); });
 
   let html = '<div class="section-title">产品库（按销量排序）</div>';
-  html += list.map(pr => `
-    <div class="item" onclick="productForm('${pr.id}')">
-      <div class="avatar" style="background:#fff4e6;color:#f59e0b">${esc((pr.name||'?').slice(0,1))}</div>
-      <div class="grow">
-        <div class="title">${esc(pr.name)}</div>
-        <div class="sub">${[pr.company, pr.category].filter(Boolean).map(esc).join(' · ') || '未填写分类'}</div>
-      </div>
-      <div class="right">
-        <div class="num">${pr.cnt} 单</div>
-        <div class="sub">¥${fmtMoney(pr.amt)}</div>
-      </div>
-    </div>`).join('');
+  html += list.map(function(pr){
+    return '<div class="item" onclick="productForm(\'' + pr.id + '\')">' +
+      '<div class="avatar" style="background:#fff4e6;color:#f59e0b">' + esc((pr.name||'?').slice(0,1)) + '</div>' +
+      '<div class="grow"><div class="title">' + esc(pr.name) + '</div>' +
+      '<div class="sub">' + ([pr.company, pr.category].filter(Boolean).map(esc).join(' · ') || '未填写分类') + '</div></div>' +
+      '<div class="right"><div class="num">' + pr.cnt + ' 单</div>' +
+      '<div class="sub">¥' + fmtMoney(pr.amt) + '</div></div></div>';
+  }).join('');
   return html;
 }
 
 /* ================= 更多 ================= */
 function renderMore(){
-  const totalAmt = DB.policies.reduce((s,p) => s + (Number(p.amount)||0), 0);
-  return `
-  <div class="card">
-    <div class="kv"><span>客户数量</span><b>${DB.customers.length}</b></div>
-    <div class="kv"><span>保单数量</span><b>${DB.policies.length}</b></div>
-    <div class="kv"><span>累计保费</span><b>¥${编辑活动fmtMoney(total'Amt)}</b></div>
-    < :div class="kv"><span> '产品数量</span><b>${DB.products.length}</b></div>
-    <div class="kv"><span>活动总次数</span><b>${DB.activities.length}</b></div>
-  </div>
-
-  <div class="card">
-    <button class="btn ghost full" onclick="exportData()">导出数据（备份）</button>
-    <button class="btn ghost full" style="margin-top:9px" onclick="importData()">导入数据（恢复）</button>
-    <button class="btn danger full" style="margin-top:9px" onclick="clearAll()">清空所有数据</button>
-  </div>
-
-  <div class="tip">数据保存在本机浏览器中。<br>换手机、清理浏览器数据会丢失，建议定期导出备份。<br>⚠️ 身份证等隐私信息请妥善保管，切勿泄露！</div>
-  `;
+  const totalAmt = DB.policies.reduce(function(s,p){ return s + (Number(p.amount)||0); }, 0);
+  return '<div class="card">' +
+    '<div class="kv"><span>客户数量</span><b>' + DB.customers.length + '</b></div>' +
+    '<div class="kv"><span>保单数量</span><b>' + DB.policies.length + '</b></div>' +
+    '<div class="kv"><span>累计保费</span><b>¥' + fmtMoney(totalAmt) + '</b></div>' +
+    '<div class="kv"><span>产品数量</span><b>' + DB.products.length + '</b></div>' +
+    '<div class="kv"><span>活动总次数</span><b>' + DB.activities.length + '</b></div>' +
+    '</div>' +
+    '<div class="card">' +
+    '<button class="btn ghost full" onclick="exportData()">导出数据（备份）</button>' +
+    '<button class="btn ghost full" style="margin-top:9px" onclick="importData()">导入数据（恢复）</button>' +
+    '<button class="btn danger full" style="margin-top:9px" onclick="clearAll()">清空所有数据</button>' +
+    '</div>' +
+    '<div class="tip">数据保存在本机浏览器中。<br>换手机、清理浏览器数据会丢失，建议定期导出备份。<br>⚠️ 身份证等隐私信息请妥善保管，切勿泄露！</div>';
 }
 
 /* ================= 弹窗 ================= */
@@ -569,7 +554,7 @@ function openModal(html, onMount){
   mask.className = 'modal-mask';
   mask.id = 'modal-mask';
   mask.innerHTML = '<div class="modal">' + html + '</div>';
-  mask.addEventListener('click', e => { if(e.target === mask) closeModal(); });
+  mask.addEventListener('click', function(e){ if(e.target === mask) closeModal(); });
   document.body.appendChild(mask);
   if(onMount) onMount(mask);
 }
@@ -582,10 +567,10 @@ function closeModal(){
 function compressImage(file, callback) {
   const reader = new FileReader();
   reader.readAsDataURL(file);
-  reader.onload = e => {
+  reader.onload = function(e){
     const img = new Image();
     img.src = e.target.result;
-    img.onload = () => {
+    img.onload = function(){
       const canvas = document.createElement('canvas');
       let w = img.width, h = img.height;
       const maxW = 800;
@@ -593,79 +578,77 @@ function compressImage(file, callback) {
       canvas.width = w; canvas.height = h;
       const ctx = canvas.getContext('2d');
       ctx.drawImage(img, 0, 0, w, h);
-      // 压缩为 JPEG，质量为 0.7，尽量减小 base64 体积
       callback(canvas.toDataURL('image/jpeg', 0.7));
     };
   };
 }
 
 function customerForm(id){
-  const c = id ? DB.customers.find(x => x.id === id) : null;
-  const allTags = [...new Set([...DEFAULT_TAGS, ...userCustomTags])];
+  const c = id ? DB.customers.find(function(x){ return x.id === id; }) : null;
+  const allTags = Array.from(new Set(DEFAULT_TAGS.concat(userCustomTags)));
   const currentTags = c && c.tags ? c.tags.split(/[,\s，、]+/).filter(Boolean) : [];
-  const presetHtml = allTags.map(t => 
-    `<button type="button" class="btn-tag ${currentTags.includes(t) ? 'active' : ''}" data-tag="${esc(t)}" onclick="toggleTag(this.dataset.tag)">${esc(t)}</button>`
-  ).join('');
+  const presetHtml = allTags.map(function(t){
+    return '<button type="button" class="btn-tag ' + (currentTags.includes(t) ? 'active' : '') + '" data-tag="' + esc(t) + '" onclick="toggleTag(this.dataset.tag)">' + esc(t) + '</button>';
+  }).join('');
 
-  openModal(`
-    <div class="modal-head">${c ? '编辑客户' : '新增客户'}</div>
-    <label>姓名 *<input id="f-name" value="${esc(c ? c.name : '')}" placeholder="客户姓名"></label>
-    <label>年龄<input id="f-age" type="number" inputmode="numeric" value="${c && c.age ? c.age : ''}" placeholder="选填，如 35"></label>
-    <label>手机号<input id="f-phone" type="tel" value="${esc(c ? c.phone : '')}" placeholder="选填"></label>
-    <label>身份证号<input id="f-idcard" value="${esc(c ? c.idCard : '')}" placeholder="选填"></label>
-    <label>身份证照片（支持拍照/上传，浏览器无法自动识别，请拍照后手动填写信息）
-      <div style="display:flex; align-items:center; gap:10px; margin-top:5px;">
-        <input type="file" id="f-idcard-img" accept="image/*" capture="environment" style="display:none">
-        <button type="button" class="btn ghost" style="flex:1; padding:10px;" onclick="document.getElementById('f-idcard-img').click()">📷 拍照 / 上传</button>
-        <button type="button" class="btn ghost" style="flex:1; padding:10px; display:${c && c.idCardImage ? 'block' : 'none'}" id="btn-remove-img" onclick="removeIdCardImage()">🗑️ 删除照片</button>
-      </div>
-      <div id="idcard-preview" style="display:${c && c.idCardImage ? 'block' : 'none'}; margin-top:10px; text-align:center;">
-        <img id="idcard-preview-img" src="${c && c.idCardImage ? c.idCardImage : ''}" style="width:100%; max-height:160px; object-fit:contain; border-radius:8px; border:1px solid var(--border);">
-      </div>
-    </label>
-    <label>标签<input id="f-tags" value="${esc(c ? c.tags : '')}" placeholder="如：高意向、已成交（逗号分隔）"></label>
-    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:-6px;margin-bottom:12px;">
-      <span style="font-size:12px;color:var(--muted);width:100%">快捷标签（点按选择/取消）：</span>
-      <div id="tag-buttons">${presetHtml}</div>
-      <div style="display:flex; gap:6px; width:100%; margin-top:6px;">
-        <input id="f-new-tag" placeholder="新增自定义标签" style="flex:1; padding:8px 10px; font-size:13px;">
-        <button type="button" class="btn ghost" style="padding:8px 12px; font-size:13px;" onclick="addCustomTag()">添加</button>
-        <button type="button" class="btn ghost" style="padding:8px 12px; font-size:13px;" onclick="manageTags()">管理</button>
-      </div>
-    </div>
-    <label>最后一次跟进日期<input id="f-last-follow" type="date" value="${esc(c ? c.lastFollowUp : '')}"></label>
-    <label>备注<textarea id="f-note" rows="3" placeholder="家庭情况、预算、关注点…">${esc(c ? c.note : '')}</textarea></label>
-    <div class="modal-actions">
-      <button class="btn ghost" onclick="closeModal()">取消</button>
-      <button class="btn primary" id="f-save">保存</button>
-    </div>
-  `, m => {
-    // 图片上传预览与压缩
-    m.querySelector('#f-idcard-img').onchange = (e) => {
+  let html = '';
+  html += '<div class="modal-head">' + (c ? '编辑客户' : '新增客户') + '</div>';
+  html += '<label>姓名 *<input id="f-name" value="' + esc(c ? c.name : '') + '" placeholder="客户姓名"></label>';
+  html += '<label>年龄<input id="f-age" type="number" inputmode="numeric" value="' + (c && c.age ? c.age : '') + '" placeholder="选填，如 35"></label>';
+  html += '<label>手机号<input id="f-phone" type="tel" value="' + esc(c ? c.phone : '') + '" placeholder="选填"></label>';
+  html += '<label>身份证号<input id="f-idcard" value="' + esc(c ? c.idCard : '') + '" placeholder="选填"></label>';
+  html += '<label>身份证照片（支持拍照/上传，浏览器无法自动识别，请拍照后手动填写信息）';
+  html += '<div style="display:flex; align-items:center; gap:10px; margin-top:5px;">';
+  html += '<input type="file" id="f-idcard-img" accept="image/*" capture="environment" style="display:none">';
+  html += '<button type="button" class="btn ghost" style="flex:1; padding:10px;" onclick="document.getElementById(\'f-idcard-img\').click()">📷 拍照 / 上传</button>';
+  html += '<button type="button" class="btn ghost" style="flex:1; padding:10px; display:' + (c && c.idCardImage ? 'block' : 'none') + '" id="btn-remove-img" onclick="removeIdCardImage()">🗑️ 删除照片</button>';
+  html += '</div>';
+  html += '<div id="idcard-preview" style="display:' + (c && c.idCardImage ? 'block' : 'none') + '; margin-top:10px; text-align:center;">';
+  html += '<img id="idcard-preview-img" src="' + (c && c.idCardImage ? c.idCardImage : '') + '" style="width:100%; max-height:160px; object-fit:contain; border-radius:8px; border:1px solid var(--border);">';
+  html += '</div></label>';
+
+  html += '<label>标签<input id="f-tags" value="' + esc(c ? c.tags : '') + '" placeholder="如：高意向、已成交（逗号分隔）"></label>';
+  html += '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:-6px;margin-bottom:12px;">';
+  html += '<span style="font-size:12px;color:var(--muted);width:100%">快捷标签（点按选择/取消）：</span>';
+  html += '<div id="tag-buttons">' + presetHtml + '</div>';
+  html += '<div style="display:flex; gap:6px; width:100%; margin-top:6px;">';
+  html += '<input id="f-new-tag" placeholder="新增自定义标签" style="flex:1; padding:8px 10px; font-size:13px;">';
+  html += '<button type="button" class="btn ghost" style="padding:8px 12px; font-size:13px;" onclick="addCustomTag()">添加</button>';
+  html += '<button type="button" class="btn ghost" style="padding:8px 12px; font-size:13px;" onclick="manageTags()">管理</button>';
+  html += '</div></div>';
+
+  html += '<label>最后一次跟进日期<input id="f-last-follow" type="date" value="' + esc(c ? c.lastFollowUp : '') + '"></label>';
+  html += '<label>备注<textarea id="f-note" rows="3" placeholder="家庭情况、预算、关注点…">' + esc(c ? c.note : '') + '</textarea></label>';
+  html += '<div class="modal-actions">' +
+    '<button class="btn ghost" onclick="closeModal()">取消</button>' +
+    '<button class="btn primary" id="f-save">保存</button>' +
+    '</div>';
+
+  openModal(html, function(m){
+    m.querySelector('#f-idcard-img').onchange = function(e){
       const file = e.target.files[0];
       if(!file) return;
-      compressImage(file, (base64) => {
+      compressImage(file, function(base64){
         m.querySelector('#idcard-preview-img').src = base64;
         m.querySelector('#idcard-preview').style.display = 'block';
         m.querySelector('#btn-remove-img').style.display = 'block';
-        m.dataset.idcardImage = base64; // 暂存
+        m.dataset.idcardImage = base64;
       });
     };
 
-    // 保存客户数据
-    m.querySelector('#f-save').onclick = () => {
+    m.querySelector('#f-save').onclick = function(){
       const name = m.querySelector('#f-name').value.trim();
       if(!name) return alert('请填写姓名');
-      
+
       let idCardImage = m.dataset.idcardImage;
       if (idCardImage === '__DELETED__') {
         idCardImage = '';
       } else {
         idCardImage = idCardImage || (c ? c.idCardImage : '');
       }
-      
+
       const data = {
-        name,
+        name: name,
         age: m.querySelector('#f-age').value.trim() ? Number(m.querySelector('#f-age').value) : '',
         phone: m.querySelector('#f-phone').value.trim(),
         idCard: m.querySelector('#f-idcard').value.trim(),
@@ -675,7 +658,7 @@ function customerForm(id){
         idCardImage: idCardImage
       };
       if(c) Object.assign(c, data);
-      else DB.customers.push({ id: uid(), createdAt: fmtDate(new Date()), ...data });
+      else DB.customers.push(Object.assign({ id: uid(), createdAt: fmtDate(new Date()) }, data));
       save(); closeModal(); render();
     };
   });
@@ -694,7 +677,7 @@ function toggleTag(tag){
   const input = document.getElementById('f-tags');
   let tags = input.value.split(/[,\s，、]+/).filter(Boolean);
   if(tags.includes(tag)){
-    tags = tags.filter(t => t !== tag);
+    tags = tags.filter(function(t){ return t !== tag; });
   } else {
     tags.push(tag);
   }
@@ -705,7 +688,7 @@ function toggleTag(tag){
 function renderTagButtons(){
   const input = document.getElementById('f-tags');
   let tags = input.value.split(/[,\s，、]+/).filter(Boolean);
-  document.querySelectorAll('.btn-tag').forEach(btn => {
+  document.querySelectorAll('.btn-tag').forEach(function(btn){
     const tag = btn.dataset.tag;
     btn.classList.toggle('active', tags.includes(tag));
   });
@@ -716,84 +699,80 @@ function addCustomTag(){
   const val = input.value.trim();
   if(!val) return;
   if(val.includes('、') || val.includes(',')) return alert('标签不能包含逗号');
-  
-  // 添加到自定义标签库
-  if(!userCustomTags.includes(val) && !DEFAULT_TAGS.includes(val)){
+
+  if(userCustomTags.indexOf(val) === -1 && DEFAULT_TAGS.indexOf(val) === -1){
     userCustomTags.push(val);
     localStorage.setItem(CUSTOM_TAGS_KEY, JSON.stringify(userCustomTags));
   }
-  
-  // 自动勾选这个新标签
+
   const tagsInput = document.getElementById('f-tags');
   let tags = tagsInput.value.split(/[,\s，、]+/).filter(Boolean);
-  if(!tags.includes(val)) tags.push(val);
+  if(tags.indexOf(val) === -1) tags.push(val);
   tagsInput.value = tags.join('、');
-  
-  // 重新渲染按钮
-  const allTags = [...new Set([...DEFAULT_TAGS, ...userCustomTags])];
+
+  const allTags = Array.from(new Set(DEFAULT_TAGS.concat(userCustomTags)));
   const container = document.getElementById('tag-buttons');
-  container.innerHTML = allTags.map(t => 
-    `<button type="button" class="btn-tag ${tags.includes(t) ? 'active' : ''}" data-tag="${esc(t)}" onclick="toggleTag(this.dataset.tag)">${esc(t)}</button>`
-  ).join('');
-  
+  container.innerHTML = allTags.map(function(t){
+    return '<button type="button" class="btn-tag ' + (tags.includes(t) ? 'active' : '') + '" data-tag="' + esc(t) + '" onclick="toggleTag(this.dataset.tag)">' + esc(t) + '</button>';
+  }).join('');
+
   input.value = '';
 }
 
 function manageTags() {
-  const allTags = [...new Set([...DEFAULT_TAGS, ...userCustomTags])];
-  const listHtml = allTags.map(t => {
-    const isCustom = userCustomTags.includes(t);
-    return `<div style="display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px solid #f1f5f9;">
-      <span>${esc(t)}</span>
-      ${isCustom ? `<button class="btn danger" style="padding:4px 10px; font-size:12px;" data-tag="${esc(t)}" onclick="deleteCustomTag(this.dataset.tag)">删除</button>` : '<span style="font-size:12px;color:var(--muted)">默认</span>'}
-    </div>`;
-  }).join('');
-  openModal(`
-    <div class="modal-head">管理标签</div>
-    <div style="max-height:50vh; overflow-y:auto;">${listHtml}</div>
-    <div class="modal-actions">
-      <button class="btn ghost" onclick="closeModal()">关闭</button>
-    </div>
-  `);
+  const allTags = Array.from(new Set(DEFAULT_TAGS.concat(userCustomTags)));
+  let listHtml = '';
+  allTags.forEach(function(t){
+    const isCustom = userCustomTags.indexOf(t) !== -1;
+    listHtml += '<div style="display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px solid #f1f5f9;">' +
+      '<span>' + esc(t) + '</span>' +
+      (isCustom
+        ? '<button class="btn danger" style="padding:4px 10px; font-size:12px;" data-tag="' + esc(t) + '" onclick="deleteCustomTag(this.dataset.tag)">删除</button>'
+        : '<span style="font-size:12px;color:var(--muted)">默认</span>') +
+      '</div>';
+  });
+
+  openModal(
+    '<div class="modal-head">管理标签</div>' +
+    '<div style="max-height:50vh; overflow-y:auto;">' + listHtml + '</div>' +
+    '<div class="modal-actions"><button class="btn ghost" onclick="closeModal()">关闭</button></div>'
+  );
 }
 
 function deleteCustomTag(tag) {
   if (!confirm('确定删除标签「' + tag + '」？')) return;
-  userCustomTags = userCustomTags.filter(t => t !== tag);
+  userCustomTags = userCustomTags.filter(function(t){ return t !== tag; });
   localStorage.setItem(CUSTOM_TAGS_KEY, JSON.stringify(userCustomTags));
-  
-  // 更新当前客户表单中的标签显示
+
   const m = document.getElementById('modal-mask');
   if (m) {
     const input = m.querySelector('#f-tags');
     if (input) {
       let tags = input.value.split(/[,\s，、]+/).filter(Boolean);
-      tags = tags.filter(t => t !== tag);
+      tags = tags.filter(function(t){ return t !== tag; });
       input.value = tags.join('、');
-      
-      // 重新渲染标签按钮
-      const allTags = [...new Set([...DEFAULT_TAGS, ...userCustomTags])];
+
+      const allTags = Array.from(new Set(DEFAULT_TAGS.concat(userCustomTags)));
       const container = document.getElementById('tag-buttons');
       if (container) {
-        container.innerHTML = allTags.map(t => 
-          `<button type="button" class="btn-tag ${tags.includes(t) ? 'active' : ''}" data-tag="${esc(t)}" onclick="toggleTag(this.dataset.tag)">${esc(t)}</button>`
-        ).join('');
+        container.innerHTML = allTags.map(function(t){
+          return '<button type="button" class="btn-tag ' + (tags.includes(t) ? 'active' : '') + '" data-tag="' + esc(t) + '" onclick="toggleTag(this.dataset.tag)">' + esc(t) + '</button>';
+        }).join('');
       }
     }
-    // 重新打开管理弹窗
     closeModal();
     manageTags();
   }
 }
 
 function delCustomer(id){
-  const c = DB.customers.find(x => x.id === id);
+  const c = DB.customers.find(function(x){ return x.id === id; });
   if(!c) return;
-  const n = DB.policies.filter(p => p.customerId === id).length;
+  const n = DB.policies.filter(function(p){ return p.customerId === id; }).length;
   if(!confirm('确定删除「' + c.name + '」？\n该客户的 ' + n + ' 条保单记录也会一起删除。')) return;
-  DB.customers = DB.customers.filter(x => x.id !== id);
-  DB.policies = DB.policies.filter(p => p.customerId !== id);
-  DB.activities = DB.activities.filter(a => a.customerId !== id);
+  DB.customers = DB.customers.filter(function(x){ return x.id !== id; });
+  DB.policies = DB.policies.filter(function(p){ return p.customerId !== id; });
+  DB.activities = DB.activities.filter(function(a){ return a.customerId !== id; });
   save(); go('customers');
 }
 
@@ -801,50 +780,49 @@ function delCustomer(id){
 function policyForm(customerId, policyId){
   if(!DB.customers.length) return alert('请先添加客户');
 
-  const p = policyId ? DB.policies.find(x => x.id === policyId) : null;
+  const p = policyId ? DB.policies.find(function(x){ return x.id === policyId; }) : null;
   const cid = p ? p.customerId : customerId;
 
-  const custOpts = DB.customers.map(c =>
-    `<option value="${c.id}" ${c.id === cid ? 'selected' : ''}>${esc(c.name)}</option>`
-  ).join('');
+  const custOpts = DB.customers.map(function(c){
+    return '<option value="' + c.id + '" ' + (c.id === cid ? 'selected' : '') + '>' + esc(c.name) + '</option>';
+  }).join('');
 
-  const prodOpts = DB.products.map(pr =>
-    `<option value="${esc(pr.name)}" ${p && p.productName === pr.name ? 'selected' : ''}>${esc(pr.name)}</option>`
-  ).join('');
+  const prodOpts = DB.products.map(function(pr){
+    return '<option value="' + esc(pr.name) + '" ' + (p && p.productName === pr.name ? 'selected' : '') + '>' + esc(pr.name) + '</option>';
+  }).join('');
 
-  openModal(`
-    <div class="modal-head">${p ? '编辑保单' : '添加保单'}</div>
-    <label>客户<select id="p-cust">${custOpts}</select></label>
-    <label>产品名称 *<input id="p-prod" list="prod-list" value="${esc(p ? p.productName : '')}" placeholder="输入或从下拉选择">
-      <datalist id="prod-list">${prodOpts}</datalist>
-    </label>
-    <label>保费（元）<input id="p-amt" type="number" inputmode="decimal" value="${p && p.amount ? p.amount : ''}" placeholder="如 5800"></label>
-    <label>成交日期<input id="p-date" type="date" value="${esc(p ? p.date : fmtDate(new Date()))}"></label>
-    <label>备注<textarea id="p-note" rows="2" placeholder="保额、缴费年限、附加险…">${esc(p ? p.note : '')}</textarea></label>
-    <div class="modal-actions">
-      ${p ? '<button class="btn danger" id="p-del">删除</button>' : ''}
-      <button class="btn ghost" onclick="closeModal()">取消</button>
-      <button class="btn primary" id="p-save">保存</button>
-    </div>
-  `, m => {
-    m.querySelector('#p-save').onclick = () => {
+  let html = '';
+  html += '<div class="modal-head">' + (p ? '编辑保单' : '添加保单') + '</div>';
+  html += '<label>客户<select id="p-cust">' + custOpts + '</select></label>';
+  html += '<label>产品名称 *<input id="p-prod" list="prod-list" value="' + esc(p ? p.productName : '') + '" placeholder="输入或从下拉选择">';
+  html += '<datalist id="prod-list">' + prodOpts + '</datalist></label>';
+  html += '<label>保费（元）<input id="p-amt" type="number" inputmode="decimal" value="' + (p && p.amount ? p.amount : '') + '" placeholder="如 5800"></label>';
+  html += '<label>成交日期<input id="p-date" type="date" value="' + esc(p ? p.date : fmtDate(new Date())) + '"></label>';
+  html += '<label>备注<textarea id="p-note" rows="2" placeholder="保额、缴费年限、附加险…">' + esc(p ? p.note : '') + '</textarea></label>';
+  html += '<div class="modal-actions">';
+  if(p) html += '<button class="btn danger" id="p-del">删除</button>';
+  html += '<button class="btn ghost" onclick="closeModal()">取消</button>';
+  html += '<button class="btn primary" id="p-save">保存</button></div>';
+
+  openModal(html, function(m){
+    m.querySelector('#p-save').onclick = function(){
       const productName = m.querySelector('#p-prod').value.trim();
       if(!productName) return alert('请填写产品名称');
       const data = {
         customerId: m.querySelector('#p-cust').value,
-        productName,
+        productName: productName,
         amount: Number(m.querySelector('#p-amt').value) || 0,
         date: m.querySelector('#p-date').value || fmtDate(new Date()),
         note: m.querySelector('#p-note').value.trim()
       };
       if(p) Object.assign(p, data);
-      else DB.policies.push({ id: uid(), ...data });
+      else DB.policies.push(Object.assign({ id: uid() }, data));
       save(); closeModal(); render();
     };
     const del = m.querySelector('#p-del');
-    if(del) del.onclick = () => {
+    if(del) del.onclick = function(){
       if(!confirm('确定删除这条保单记录？')) return;
-      DB.policies = DB.policies.filter(x => x.id !== p.id);
+      DB.policies = DB.policies.filter(function(x){ return x.id !== p.id; });
       save(); closeModal(); render();
     };
   });
@@ -853,37 +831,37 @@ function policyForm(customerId, policyId){
 /* ================= 表单：活动 ================= */
 function activityForm(customerId, activityId){
   if(!DB.customers.length) return alert('请先添加客户');
-  const a = activityId ? DB.activities.find(x => x.id === activityId) : null;
+  const a = activityId ? DB.activities.find(function(x){ return x.id === activityId; }) : null;
   const cid = a ? a.customerId : customerId;
 
-  openModal(`
-    <div class="modal-head">${a ? '添加活动'}</div>
-    <label>活动名称 *<input id="a-name" value="${esc(a ? a.name : '')}" placeholder="如：客户答谢会"></label>
-    <label>参加日期<input id="a-date" type="date" value="${esc(a ? a.date : fmtDate(new Date()))}"></label>
-    <label>备注<textarea id="a-note" rows="2" placeholder="活动地点、内容…">${esc(a ? a.note : '')}</textarea></label>
-    <div class="modal-actions">
-      ${a ? '<button class="btn danger" id="a-del">删除</button>' : ''}
-      <button class="btn ghost" onclick="closeModal()">取消</button>
-      <button class="btn primary" id="a-save">保存</button>
-    </div>
-  `, m => {
-    m.querySelector('#a-save').onclick = () => {
+  let html = '';
+  html += '<div class="modal-head">' + (a ? '编辑活动' : '添加活动') + '</div>';
+  html += '<label>活动名称 *<input id="a-name" value="' + esc(a ? a.name : '') + '" placeholder="如：客户答谢会"></label>';
+  html += '<label>参加日期<input id="a-date" type="date" value="' + esc(a ? a.date : fmtDate(new Date())) + '"></label>';
+  html += '<label>备注<textarea id="a-note" rows="2" placeholder="活动地点、内容…">' + esc(a ? a.note : '') + '</textarea></label>';
+  html += '<div class="modal-actions">';
+  if(a) html += '<button class="btn danger" id="a-del">删除</button>';
+  html += '<button class="btn ghost" onclick="closeModal()">取消</button>';
+  html += '<button class="btn primary" id="a-save">保存</button></div>';
+
+  openModal(html, function(m){
+    m.querySelector('#a-save').onclick = function(){
       const name = m.querySelector('#a-name').value.trim();
       if(!name) return alert('请填写活动名称');
       const data = {
         customerId: cid,
-        name,
+        name: name,
         date: m.querySelector('#a-date').value || fmtDate(new Date()),
         note: m.querySelector('#a-note').value.trim()
       };
       if(a) Object.assign(a, data);
-      else DB.activities.push({ id: uid(), ...data });
+      else DB.activities.push(Object.assign({ id: uid() }, data));
       save(); closeModal(); render();
     };
     const del = m.querySelector('#a-del');
-    if(del) del.onclick = () => {
+    if(del) del.onclick = function(){
       if(!confirm('确定删除这条活动记录？')) return;
-      DB.activities = DB.activities.filter(x => x.id !== a.id);
+      DB.activities = DB.activities.filter(function(x){ return x.id !== a.id; });
       save(); closeModal(); render();
     };
   });
@@ -891,36 +869,36 @@ function activityForm(customerId, activityId){
 
 /* ================= 表单：产品 ================= */
 function productForm(id){
-  const pr = id ? DB.products.find(x => x.id === id) : null;
-  openModal(`
-    <div class="modal-head">${pr ? '编辑产品' : '新增产品'}</div>
-    <label>产品名称 *<input id="q-name" value="${esc(pr ? pr.name : '')}" placeholder="如：安心重疾险"></label>
-    <label>所属公司<input id="q-company" value="${esc(pr ? pr.company : '')}" placeholder="如：中国人寿"></label>
-    <label>类别<input id="q-cat" value="${esc(pr ? pr.category : '')}" placeholder="重疾险 / 医疗险 / 年金险 / 意外险"></label>
-    <label>卖点备注<textarea id="q-note" rows="3" placeholder="适合人群、核心优势、话术要点…">${esc(pr ? pr.note : '')}</textarea></label>
-    <div class="modal-actions">
-      ${pr ? '<button class="btn danger" id="q-del">删除</button>' : ''}
-      <button class="btn ghost" onclick="closeModal()">取消</button>
-      <button class="btn primary" id="q-save">保存</button>
-    </div>
-  `, m => {
-    m.querySelector('#q-save').onclick = () => {
+  const pr = id ? DB.products.find(function(x){ return x.id === id; }) : null;
+  let html = '';
+  html += '<div class="modal-head">' + (pr ? '编辑产品' : '新增产品') + '</div>';
+  html += '<label>产品名称 *<input id="q-name" value="' + esc(pr ? pr.name : '') + '" placeholder="如：安心重疾险"></label>';
+  html += '<label>所属公司<input id="q-company" value="' + esc(pr ? pr.company : '') + '" placeholder="如：中国人寿"></label>';
+  html += '<label>类别<input id="q-cat" value="' + esc(pr ? pr.category : '') + '" placeholder="重疾险 / 医疗险 / 年金险 / 意外险"></label>';
+  html += '<label>卖点备注<textarea id="q-note" rows="3" placeholder="适合人群、核心优势、话术要点…">' + esc(pr ? pr.note : '') + '</textarea></label>';
+  html += '<div class="modal-actions">';
+  if(pr) html += '<button class="btn danger" id="q-del">删除</button>';
+  html += '<button class="btn ghost" onclick="closeModal()">取消</button>';
+  html += '<button class="btn primary" id="q-save">保存</button></div>';
+
+  openModal(html, function(m){
+    m.querySelector('#q-save').onclick = function(){
       const name = m.querySelector('#q-name').value.trim();
       if(!name) return alert('请填写产品名称');
       const data = {
-        name,
+        name: name,
         company: m.querySelector('#q-company').value.trim(),
         category: m.querySelector('#q-cat').value.trim(),
         note: m.querySelector('#q-note').value.trim()
       };
       if(pr) Object.assign(pr, data);
-      else DB.products.push({ id: uid(), ...data });
+      else DB.products.push(Object.assign({ id: uid() }, data));
       save(); closeModal(); render();
     };
     const del = m.querySelector('#q-del');
-    if(del) del.onclick = () => {
+    if(del) del.onclick = function(){
       if(!confirm('确定删除产品「' + pr.name + '」？\n已成交的保单记录不受影响。')) return;
-      DB.products = DB.products.filter(x => x.id !== pr.id);
+      DB.products = DB.products.filter(function(x){ return x.id !== pr.id; });
       save(); closeModal(); render();
     };
   });
@@ -929,65 +907,67 @@ function productForm(id){
 /* ================= 数据导入导出 ================= */
 function exportData(){
   const json = JSON.stringify(DB, null, 2);
-  openModal(`
-    <div class="modal-head">导出数据</div>
-    <p class="hint">复制下面全部内容保存到备忘录或微信收藏，或点「下载文件」存到手机。</p>
-    <textarea id="exp-text" rows="8" readonly>${esc(json)}</textarea>
-    <div class="modal-actions">
-      <button class="btn ghost" onclick="closeModal()">关闭</button>
-      <button class="btn ghost" id="exp-copy">复制</button>
-      <button class="btn primary" id="exp-dl">下载</button>
-    </div>
-  `, m => {
-    m.querySelector('#exp-copy').onclick = async () => {
-      const ta = m.querySelector('#exp-text');
-      try{
-        await navigator.clipboard.writeText(json);
-        alert('已复制到剪贴板');
-      }catch(e){
-        ta.select(); ta.setSelectionRange(0, 999999);
-        document.execCommand('copy');
-        alert('已复制');
-      }
-    };
-    m.querySelector('#exp-dl').onclick = () => {
-      const blob = new Blob([json], { type: 'application/json' });
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = '保单管家备份_' + fmtDate(new Date()) + '.json';
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      setTimeout(() => URL.revokeObjectURL(a.href), 3000);
-    };
-  });
+  openModal(
+    '<div class="modal-head">导出数据</div>' +
+    '<p class="hint">复制下面全部内容保存到备忘录或微信收藏，或点「下载文件」存到手机。</p>' +
+    '<textarea id="exp-text" rows="8" readonly>' + esc(json) + '</textarea>' +
+    '<div class="modal-actions">' +
+    '<button class="btn ghost" onclick="closeModal()">关闭</button>' +
+    '<button class="btn ghost" id="exp-copy">复制</button>' +
+    '<button class="btn primary" id="exp-dl">下载</button>' +
+    '</div>',
+    function(m){
+      m.querySelector('#exp-copy').onclick = async function(){
+        const ta = m.querySelector('#exp-text');
+        try{
+          await navigator.clipboard.writeText(json);
+          alert('已复制到剪贴板');
+        }catch(e){
+          ta.select(); ta.setSelectionRange(0, 999999);
+          document.execCommand('copy');
+          alert('已复制');
+        }
+      };
+      m.querySelector('#exp-dl').onclick = function(){
+        const blob = new Blob([json], { type: 'application/json' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = '保单管家备份_' + fmtDate(new Date()) + '.json';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(function(){ URL.revokeObjectURL(a.href); }, 3000);
+      };
+    }
+  );
 }
 
 function importData(){
-  openModal(`
-    <div class="modal-head">导入数据</div>
-    <p class="hint">粘贴之前导出的 JSON 内容。⚠️ 导入会覆盖当前全部数据。</p>
-    <textarea id="imp-text" rows="8" placeholder='{"customers":[...],"products":[...],"policies":[...],"activities":[...]}'></textarea>
-    <div class="modal-actions">
-      <button class="btn ghost" onclick="closeModal()">取消</button>
-      <button class="btn primary" id="imp-ok">确认导入</button>
-    </div>
-  `, m => {
-    m.querySelector('#imp-ok').onclick = () => {
-      try{
-        const d = JSON.parse(m.querySelector('#imp-text').value);
-        if(!d || typeof d !== 'object') throw new Error('bad');
-        DB.customers = Array.isArray(d.customers) ? d.customers : [];
-        DB.products  = Array.isArray(d.products)  ? d.products  : [];
-        DB.policies  = Array.isArray(d.policies)  ? d.policies  : [];
-        DB.activities = Array.isArray(d.activities) ? d.activities : [];
-        save(); closeModal(); go('home');
-        alert('导入成功');
-      }catch(e){
-        alert('内容格式不正确，请检查后重试');
-      }
-    };
-  });
+  openModal(
+    '<div class="modal-head">导入数据</div>' +
+    '<p class="hint">粘贴之前导出的 JSON 内容。⚠️ 导入会覆盖当前全部数据。</p>' +
+    '<textarea id="imp-text" rows="8" placeholder=\'{"customers":[...],"products":[...],"policies":[...],"activities":[...]}\'></textarea>' +
+    '<div class="modal-actions">' +
+    '<button class="btn ghost" onclick="closeModal()">取消</button>' +
+    '<button class="btn primary" id="imp-ok">确认导入</button>' +
+    '</div>',
+    function(m){
+      m.querySelector('#imp-ok').onclick = function(){
+        try{
+          const d = JSON.parse(m.querySelector('#imp-text').value);
+          if(!d || typeof d !== 'object') throw new Error('bad');
+          DB.customers = Array.isArray(d.customers) ? d.customers : [];
+          DB.products  = Array.isArray(d.products)  ? d.products  : [];
+          DB.policies  = Array.isArray(d.policies)  ? d.policies  : [];
+          DB.activities = Array.isArray(d.activities) ? d.activities : [];
+          save(); closeModal(); go('home');
+          alert('导入成功');
+        }catch(e){
+          alert('内容格式不正确，请检查后重试');
+        }
+      };
+    }
+  );
 }
 
 function clearAll(){
@@ -1036,7 +1016,7 @@ function seedDemo(){
 function afterRender(){
   const si = document.getElementById('cust-search');
   if(si){
-    si.addEventListener('input', e => {
+    si.addEventListener('input', function(e){
       custQ = e.target.value;
       const list = document.getElementById('cust-list');
       if(list) list.innerHTML = custListHTML();
